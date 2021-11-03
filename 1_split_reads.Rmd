@@ -1,0 +1,114 @@
+```{r setup}
+library("ggplot2")
+library("plotly")
+```
+```{r}
+my.t.test.p.value <- function(c1, c2, c3, c4) {
+    ttest <- c("error")
+    for (i in 1:nrow(BWA_MEM2_secondary)) {
+      obj<-try(t.test(x=BWA_MEM2_secondary[i,c1:c2],y=BWA_MEM2_secondary[i,c3:c4]), silent=TRUE)
+      if (is(obj, "try-error")) {ttest[i] <- (NA)} else {ttest[i] <- (obj$p.value)}
+    }
+    return(as.numeric(ttest))
+}
+
+```
+
+
+```{r}
+BWA_MEM2_secondary <- read.table("./Count_tables/BWA_MEM2_secondary.txt", header = TRUE)
+ALL_reads <- read.table("./Count_tables/all_reads.txt", header = TRUE)
+```
+
+```{r}
+fixed_names<- c(
+  "rrp6_1",
+  "rrp6_2",
+  "rrp6_3",
+  "upf1_1",
+  "upf1_2",
+  "upf1_3",
+  "upf1_rrp6_1",
+  "upf1_rrp6_2",
+  "upf1_rrp6_3",
+  "WT_1",
+  "WT_2",
+  "WT_3")
+
+colnames(BWA_MEM2_secondary)[7:18] <- fixed_names
+colnames(ALL_reads)[7:18] <- fixed_names
+```
+
+```{r}
+BWA_MEM2_secondary$rrp6_mean <- rowMeans(BWA_MEM2_secondary[7:9])
+BWA_MEM2_secondary$upf1_mean <- rowMeans(BWA_MEM2_secondary[10:12])
+BWA_MEM2_secondary$upf1_rrp6_mean <- rowMeans(BWA_MEM2_secondary[13:15])
+BWA_MEM2_secondary$WT_mean <- rowMeans(BWA_MEM2_secondary[16:18])
+
+BWA_MEM2_secondary$rrp6_vs_upf1_rrp6 <- BWA_MEM2_secondary$rrp6_mean/BWA_MEM2_secondary$upf1_rrp6_mean
+
+BWA_MEM2_secondary$rrp6_vs_upf1_rrp6_t_test <- my.t.test.p.value(7,9,13,15)
+BWA_MEM2_secondary$wt_vs_upf1_t_test <- my.t.test.p.value(16,18,10,12)
+
+ALL_reads$rrp6_mean <- rowMeans(ALL_reads[7:9])
+ALL_reads$upf1_mean <- rowMeans(ALL_reads[10:12])
+ALL_reads$upf1_rrp6_mean <- rowMeans(ALL_reads[13:15])
+ALL_reads$WT_mean <- rowMeans(ALL_reads[16:18])
+
+for (i in 1:nrow(BWA_MEM2_secondary)) {
+  BWA_MEM2_secondary[i,"WT_over_split"] <- BWA_MEM2_secondary[i,"WT_mean"]/ALL_reads[i,"WT_mean"]
+  BWA_MEM2_secondary[i,"upf1_over_split"] <- BWA_MEM2_secondary[i,"upf1_mean"]/ALL_reads[i,"upf1_mean"]
+}
+```
+
+
+```{r}
+rrp6_vs_U_R <- ggplot(data = BWA_MEM2_secondary)+
+  geom_point(aes(x=rrp6_mean, y=upf1_rrp6_mean, text=Geneid, color = rrp6_vs_upf1_rrp6_t_test))+
+  scale_x_log10()+
+  scale_y_log10()+
+  scale_colour_gradient2(low = "red", mid = "yellow", high ="gray", midpoint = -2, trans = "log10")
+
+wt_vs_upf1 <- ggplot(data = BWA_MEM2_secondary)+
+  geom_point(aes(x=WT_mean, y=upf1_mean, text=Geneid, color = wt_vs_upf1_t_test))+
+  scale_x_log10()+
+  scale_y_log10()+
+  scale_colour_gradient2(low = "red", mid = "yellow", high ="black", midpoint = -2, trans = "log10")
+
+wt_vs_upf1_split <- ggplot(data = BWA_MEM2_secondary)+
+  geom_point(aes(x=WT_over_split, y=upf1_over_split, text=Geneid, color = WT_mean))+
+  scale_x_log10()+
+  scale_y_log10()+
+  scale_colour_gradient2(low = "red", mid = "orange", high ="green", midpoint = 2, trans = "log10")
+
+ggplotly(wt_vs_upf1)
+ggplotly(wt_vs_upf1_split)
+```
+
+```{r}
+BWA_MEM2_secondary_introns <- subset(BWA_MEM2_secondary, grepl( ";" , BWA_MEM2_secondary$Chr, fixed = TRUE))
+
+rrp6_vs_U_R <- ggplot(data = BWA_MEM2_secondary_introns)+
+  geom_point(aes(x=rrp6_mean, y=upf1_rrp6_mean, text=Geneid, color = rrp6_vs_upf1_rrp6_t_test))+
+  scale_x_log10()+
+  scale_y_log10()+
+  scale_colour_gradient2(low = "red", mid = "yellow", high ="gray", midpoint = -2, trans = "log10")
+
+wt_vs_upf1 <- ggplot(data = BWA_MEM2_secondary_introns)+
+  geom_point(aes(x=WT_mean, y=upf1_mean, text=Geneid, color = wt_vs_upf1_t_test))+
+  scale_x_log10()+
+  scale_y_log10()+
+  scale_colour_gradient2(low = "red", mid = "yellow", high ="black", midpoint = -2, trans = "log10")
+
+wt_vs_upf1_split <- ggplot(data = BWA_MEM2_secondary_introns)+
+  geom_point(aes(x=WT_over_split, y=upf1_over_split, text=Geneid, color = WT_mean))+
+  scale_x_log10()+
+  scale_y_log10()+
+  scale_colour_gradient2(low = "red", mid = "orange", high ="green", midpoint = 2, trans = "log10")
+
+
+ggplotly(wt_vs_upf1_split)
+ggplotly(wt_vs_upf1)
+#ggplotly(rrp6_vs_U_R)
+```
+
