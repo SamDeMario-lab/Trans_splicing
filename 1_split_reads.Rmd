@@ -61,7 +61,7 @@ for (i in 1:nrow(BWA_MEM2_secondary)) {
 }
 ```
 
-
+all annotations
 ```{r}
 rrp6_vs_U_R <- ggplot(data = BWA_MEM2_secondary)+
   geom_point(aes(x=rrp6_mean, y=upf1_rrp6_mean, text=Geneid, color = rrp6_vs_upf1_rrp6_t_test))+
@@ -75,16 +75,34 @@ wt_vs_upf1 <- ggplot(data = BWA_MEM2_secondary)+
   scale_y_log10()+
   scale_colour_gradient2(low = "red", mid = "yellow", high ="black", midpoint = -2, trans = "log10")
 
-wt_vs_upf1_split <- ggplot(data = BWA_MEM2_secondary)+
+make_wt_upf1_split <- function(data_frame, mid, title) {
+wt_vs_upf1_split <- ggplot(data = data_frame)+
   geom_point(aes(x=WT_over_split, y=upf1_over_split, text=Geneid, color = WT_mean))+
   scale_x_log10()+
   scale_y_log10()+
-  scale_colour_gradient2(low = "red", mid = "orange", high ="green", midpoint = 2, trans = "log10")
+  scale_colour_gradient2(low = "red", mid = "orange", high ="green", midpoint = mid, trans = "log10")+
+  xlab("WT | fraction of total reads which are split reads")+ 
+  ylab("upf1d | fraction of total reads which are split reads")+
+  labs(title = title, color = "Wt Avg. Counts")
+return(wt_vs_upf1_split)
+}
+
+
+high_abundance_BWA_MEM2_secondary <- subset(BWA_MEM2_secondary, BWA_MEM2_secondary$WT_mean > 100)
+
+
+wt_vs_upf1_split <- make_wt_upf1_split(BWA_MEM2_secondary, 2, "Split reads in upf1d vs WT")
+high_abundance_wt_vs_upf1_split <- make_wt_upf1_split(high_abundance_BWA_MEM2_secondary, 3, "Split reads in upf1d vs WT | Highly abundant")
 
 ggplotly(wt_vs_upf1)
 ggplotly(wt_vs_upf1_split)
+ggplotly(high_abundance_wt_vs_upf1_split)
+
+ggsave(plot = wt_vs_upf1_split ,filename = "./plots/2NOV2021/upf1_vs_wt_split_all.png", device = "png", units = "in", width = 6, height = 4)
+ggsave(plot = high_abundance_wt_vs_upf1_split ,filename = "./plots/2NOV2021/upf1_vs_wt_split_high_abundance.png", device = "png", units = "in", width = 6, height = 4)
 ```
 
+introns
 ```{r}
 BWA_MEM2_secondary_introns <- subset(BWA_MEM2_secondary, grepl( ";" , BWA_MEM2_secondary$Chr, fixed = TRUE))
 
@@ -104,11 +122,15 @@ wt_vs_upf1_split <- ggplot(data = BWA_MEM2_secondary_introns)+
   geom_point(aes(x=WT_over_split, y=upf1_over_split, text=Geneid, color = WT_mean))+
   scale_x_log10()+
   scale_y_log10()+
-  scale_colour_gradient2(low = "red", mid = "orange", high ="green", midpoint = 2, trans = "log10")
-
+  scale_colour_gradient2(low = "red", mid = "orange", high ="green", midpoint = 2, trans = "log10")+
+  xlab("WT | fraction of total reads which are split reads")+ 
+  ylab("upf1d | fraction of total reads which are split reads")+
+  labs(title = "Split reads in upf1d vs WT", color = "Wt Avg. Counts")
 
 ggplotly(wt_vs_upf1_split)
 ggplotly(wt_vs_upf1)
 #ggplotly(rrp6_vs_U_R)
+
+ggsave(plot = wt_vs_upf1_split,filename = "./plots/2NOV2021/upf1_vs_wt_split_introns.png", device = "png", units = "in", width = 6, height = 4)
 ```
 
