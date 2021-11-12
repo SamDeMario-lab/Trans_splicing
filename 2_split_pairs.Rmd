@@ -1,0 +1,85 @@
+---
+title: "flagstats"
+author: "Samuel DeMario"
+date: "11/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library("ggpubr")
+```
+
+```{r}
+r1<-read.table(file = 'Flagstats/RRP6_1YP_1.fq.gz.tsv', sep = '\t', header = FALSE, row.names = 3)
+r2<-read.table(file = 'Flagstats/RRP6_2YP_1.fq.gz.tsv', sep = '\t', header = FALSE, row.names = 3)
+r3<-read.table(file = 'Flagstats/RRP6_3YP_1.fq.gz.tsv', sep = '\t', header = FALSE, row.names = 3)
+UR1<-read.table(file = 'Flagstats/U_R_1YPD_1.fq.gz.tsv', sep = '\t', header = FALSE, row.names = 3)
+UR2<-read.table(file = 'Flagstats/U_R_2YPD_1.fq.gz.tsv', sep = '\t', header = FALSE, row.names = 3)
+UR3<-read.table(file = 'Flagstats/U_R_3YPD_1.fq.gz.tsv', sep = '\t', header = FALSE, row.names = 3)
+W1<-read.table(file = 'Flagstats/WT_1_YPD_1.fq.gz.tsv', sep = '\t', header = FALSE, row.names = 3)
+W2<-read.table(file = 'Flagstats/WT_2_YPD_1.fq.gz.tsv', sep = '\t', header = FALSE, row.names = 3)
+W3<-read.table(file = 'Flagstats/WT_3_YPD_1.fq.gz.tsv', sep = '\t', header = FALSE, row.names = 3)
+U1<-read.table(file = 'Flagstats/UPF1_1YP_1.fq.gz.tsv', sep = '\t', header = FALSE, row.names = 3)
+U2<-read.table(file = 'Flagstats/UPF1_2YP_1.fq.gz.tsv', sep = '\t', header = FALSE, row.names = 3)
+U3<-read.table(file = 'Flagstats/UPF1_3YP_1.fq.gz.tsv', sep = '\t', header = FALSE, row.names = 3)
+```
+
+```{r}
+flagstats_df <- data.frame( total = c(r1[1,1],
+                      r2[1,1],
+                      r3[1,1],
+                      UR1[1,1],
+                      UR2[1,1],
+                      UR3[1,1],
+                      W1[1,1],
+                      W2[1,1],
+                      W3[1,1],
+                      U1[1,1],
+                      U2[1,1],
+                      U3[1,1]),
+            mate_mapped = c(r1[16,1],
+                      r2[16,1],
+                      r3[16,1],
+                      UR1[16,1],
+                      UR2[16,1],
+                      UR3[16,1],
+                      W1[16,1],
+                      W2[16,1],
+                      W3[16,1],
+                      U1[16,1],
+                      U2[16,1],
+                      U3[16,1]),
+            mutant = c("rrp6",
+                       "rrp6",
+                       "rrp6",
+                       "upf1rrp6",
+                       "upf1rrp6",
+                       "upf1rrp6",
+                       "WT",
+                       "WT",
+                       "WT",
+                       "upf1",
+                       "upf1",
+                       "upf1"
+                       ))
+
+flagstats_df$total <- as.numeric(flagstats_df$total)
+flagstats_df$mate_mapped <- as.numeric(flagstats_df$mate_mapped)
+flagstats_df$mutant <- as.factor(flagstats_df$mutant)
+
+flagstats_df$percent_flagged <- (flagstats_df$mate_mapped/flagstats_df$total)*100
+```
+
+```{r}
+my_comparisons <- list( c("WT", "upf1"))
+
+box_plot <- ggplot(data = flagstats_df)+
+  geom_boxplot(aes (x = mutant, y = percent_flagged, fill =mutant))+
+  xlab("Mutant")+
+  ylab("% of total reads mapped to diffrent chromosomes") +
+  stat_compare_means(ref.group = "WT", aes(x = mutant, y = percent_flagged), method = "t.test")
+
+ggsave(filename = "plots/11NOV2021/boxplot.png", plot = box_plot, device = 'png', units = "in",height = 4, width = 7)
+```
+
