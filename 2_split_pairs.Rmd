@@ -8,7 +8,20 @@ output: html_document
 ```{r setup, include=FALSE}
 library(ggplot2)
 library("ggpubr")
+library(plotly)
 ```
+
+```{r}
+my.t.test.p.value <- function(c1, c2, c3, c4) {
+    ttest <- c("error")
+    for (i in 1:nrow(split_pairs)) {
+      obj<-try(t.test(x=split_pairs[i,c1:c2],y=split_pairs[i,c3:c4]), silent=TRUE)
+      if (is(obj, "try-error")) {ttest[i] <- (NA)} else {ttest[i] <- (obj$p.value)}
+    }
+    return(as.numeric(ttest))
+}
+```
+
 
 ```{r}
 r1<-read.table(file = 'Flagstats/RRP6_1YP_1.fq.gz.tsv', sep = '\t', header = FALSE, row.names = 3)
@@ -81,5 +94,70 @@ box_plot <- ggplot(data = flagstats_df)+
   stat_compare_means(ref.group = "WT", aes(x = mutant, y = percent_flagged), method = "t.test")
 
 ggsave(filename = "plots/11NOV2021/boxplot.png", plot = box_plot, device = 'png', units = "in",height = 4, width = 7)
+```
+
+```{r}
+split_pairs <- read.table("./Count_tables/split_pairs.txt", header = TRUE)
+ALL_reads <- read.table("./Count_tables/all_reads.txt", header = TRUE)
+
+fixed_names<- c(
+  "rrp6_1",
+  "rrp6_2",
+  "rrp6_3",
+  "upf1_1",
+  "upf1_2",
+  "upf1_3",
+  "upf1_rrp6_1",
+  "upf1_rrp6_2",
+  "upf1_rrp6_3",
+  "WT_1",
+  "WT_2",
+  "WT_3")
+
+colnames(split_pairs)[7:18] <- fixed_names
+colnames(ALL_reads)[7:18] <- fixed_names
+
+split_pairs$rrp6_mean <- rowMeans(split_pairs[7:9])
+split_pairs$upf1_mean <- rowMeans(split_pairs[10:12])
+split_pairs$upf1_rrp6_mean <- rowMeans(split_pairs[13:15])
+split_pairs$WT_mean <- rowMeans(split_pairs[16:18])
+
+split_pairs$rrp6_vs_upf1_rrp6 <- split_pairs$rrp6_mean/split_pairs$upf1_rrp6_mean
+
+split_pairs$rrp6_vs_upf1_rrp6_t_test <- my.t.test.p.value(7,9,13,15)
+split_pairs$wt_vs_upf1_t_test <- my.t.test.p.value(16,18,10,12)
+
+ALL_reads$rrp6_mean <- rowMeans(ALL_reads[7:9])
+ALL_reads$upf1_mean <- rowMeans(ALL_reads[10:12])
+ALL_reads$upf1_rrp6_mean <- rowMeans(ALL_reads[13:15])
+ALL_reads$WT_mean <- rowMeans(ALL_reads[16:18])
+
+for (i in 1:nrow(split_pairs)) {
+  split_pairs[i,"WT_over_split"] <- split_pairs[i,"WT_mean"]/ALL_reads[i,"WT_mean"]
+  split_pairs[i,"upf1_over_split"] <- split_pairs[i,"upf1_mean"]/ALL_reads[i,"upf1_mean"]
+}
+
+for (i in 1:nrow(split_pairs)) {
+  split_pairs[i,"WT1_over_split"] <- split_pairs[i,"WT_1"]/ALL_reads[i,"WT_mean"]
+  split_pairs[i,"WT2_over_split"] <- split_pairs[i,"WT_2"]/ALL_reads[i,"WT_mean"]
+  split_pairs[i,"WT3_over_split"] <- split_pairs[i,"WT_3"]/ALL_reads[i,"WT_mean"]
+  split_pairs[i,"upf1_1_over_split"] <- split_pairs[i,"upf1_1"]/ALL_reads[i,"upf1_mean"]
+  split_pairs[i,"upf1_2_over_split"] <- split_pairs[i,"upf1_2"]/ALL_reads[i,"upf1_mean"]
+  split_pairs[i,"upf1_3_over_split"] <- split_pairs[i,"upf1_3"]/ALL_reads[i,"upf1_mean"]
+}
+
+split_pairs$wt_vs_upf1_ratio_t_test <- my.t.test.p.value(28,30,31,33)
+
+high_abundance_split_pairs <- subset(split_pairs, split_pairs$WT_mean > 100)
+```
+
+```{r}
+wt_vs_upf1_paired <- ggplot(data = split_pairs)+
+  geom_point(aes(x=WT_over_split, y=upf1_over_split, text=Geneid, color = wt_vs_upf1_ratio_t_test))+
+  scale_x_log10()+
+  scale_y_log10()+
+  geom_abline(slope = 1)
+
+ggplotly(wt_vs_upf1_paired)
 ```
 
