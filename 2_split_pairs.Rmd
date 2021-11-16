@@ -85,18 +85,6 @@ flagstats_df$percent_flagged <- (flagstats_df$mate_mapped/flagstats_df$total)*10
 ```
 
 ```{r}
-my_comparisons <- list( c("WT", "upf1"))
-
-box_plot <- ggplot(data = flagstats_df)+
-  geom_boxplot(aes (x = mutant, y = percent_flagged, fill =mutant))+
-  xlab("Mutant")+
-  ylab("% of total reads mapped to diffrent chromosomes") +
-  stat_compare_means(ref.group = "WT", aes(x = mutant, y = percent_flagged), method = "t.test")
-
-ggsave(filename = "plots/11NOV2021/boxplot.png", plot = box_plot, device = 'png', units = "in",height = 4, width = 7)
-```
-
-```{r}
 split_pairs <- read.table("./Count_tables/split_pairs.txt", header = TRUE)
 ALL_reads <- read.table("./Count_tables/all_reads.txt", header = TRUE)
 
@@ -149,15 +137,146 @@ for (i in 1:nrow(split_pairs)) {
 split_pairs$wt_vs_upf1_ratio_t_test <- my.t.test.p.value(28,30,31,33)
 
 high_abundance_split_pairs <- subset(split_pairs, split_pairs$WT_mean > 100)
+
+high_unsplit_abundance_split_pairs <- subset(split_pairs, ALL_reads$WT_mean > 100000)
+
+chr_split <- strsplit(split_pairs$Chr, split = ";")
+for (i in 1:length(chr_split)) {
+  split_pairs$intron[i] <- length(chr_split[[i]]) != 1
+}
+
+intron_split_pairs <- subset(split_pairs, split_pairs$intron)
+
+intron_split_pairs_high_abundance <- subset(intron_split_pairs, intron_split_pairs$WT_mean > 100)
+
 ```
 
 ```{r}
-wt_vs_upf1_paired <- ggplot(data = split_pairs)+
+plot_with_t_test <- function (df, title) {
+  
+  df_low_pval <- subset(df,df[,"wt_vs_upf1_ratio_t_test"]<0.05)
+  
+  wt_vs_upf1 <- ggplot(data = df)+
   geom_point(aes(x=WT_over_split, y=upf1_over_split, text=Geneid, color = wt_vs_upf1_ratio_t_test))+
+  scale_color_gradient2(low = "#FF0000C1", mid = "#334CFFC1", high = "#000000C1", midpoint = -1.3, trans = "log10")+
   scale_x_log10()+
   scale_y_log10()+
-  geom_abline(slope = 1)
+  geom_abline(slope = 1)+
+  labs(title = title)+
+  xlab(label = "WT Split Reads / WT Total Reads")+
+  ylab(label = "upf1d Split Reads / upf1d Total Reads")+
+  geom_point(data = df_low_pval,aes(x=WT_over_split, y=upf1_over_split, text=Geneid), color = "Green")
+  
 
-ggplotly(wt_vs_upf1_paired)
+  return(wt_vs_upf1)
+}
+
+allannotations <- plot_with_t_test(split_pairs,"All Annotations")
+intron_wthigh <- plot_with_t_test(intron_split_pairs_high_abundance,"Intron containing (CDS) Annotations | WT mean > 100")
+allannotations_wthigh <- plot_with_t_test(high_abundance_split_pairs,"All Annotations | WT split mean > 100")
+introns <- plot_with_t_test(intron_split_pairs,"Intron containing (CDS) Annotations")
+all_wtunsplithigh <- plot_with_t_test(high_unsplit_abundance_split_pairs,"All Annotations | WT unsplit > 10000")
+
+ggsave(filename = "plots/11NOV2021/allannotations.png", plot = allannotations, device = 'png', units = "in",height = 4, width = 7)
+ggsave(filename = "plots/11NOV2021/intron_wthigh.png", plot = intron_wthigh, device = 'png', units = "in",height = 4, width = 7)
+ggsave(filename = "plots/11NOV2021/allannotations_wthigh.png", plot = allannotations_wthigh, device = 'png', units = "in",height = 4, width = 7)
+ggsave(filename = "plots/11NOV2021/introns.png", plot = introns, device = 'png', units = "in",height = 4, width = 7)
+ggsave(filename = "plots/11NOV2021/all_wtunsplithigh.png", plot = all_wtunsplithigh, device = 'png', units = "in",height = 4, width = 7)
+
+# wt_vs_upf1_paired_intron_high_abundance <- ggplot(data = intron_split_pairs_high_abundance)+
+#   geom_point(aes(x=WT_over_split, y=upf1_over_split, text=Geneid, color = wt_vs_upf1_ratio_t_test))+
+#   scale_x_log10()+
+#   scale_y_log10()+
+#   geom_abline(slope = 1)+
+#   labs(title = "Intron containing (CDS) Annotations | WT mean > 100")+
+#   xlab(label = "WT Split Reads / WT Total Reads")+
+#   ylab(label = "upf1d Split Reads / upf1d Total Reads")
+
+# wt_vs_upf1_paired_high_abundance <- ggplot(data = high_abundance_split_pairs)+
+#   geom_point(aes(x=WT_over_split, y=upf1_over_split, text=Geneid, color = wt_vs_upf1_ratio_t_test))+
+#   scale_x_log10()+
+#   scale_y_log10()+
+#   geom_abline(slope = 1)+
+#   labs(title = "All Annotations | WT split mean > 100")+
+#   xlab(label = "WT Split Reads / WT Total Reads")+
+#   ylab(label = "upf1d Split Reads / upf1d Total Reads")
+
+# wt_vs_upf1_paired_introns <- ggplot(data = intron_split_pairs)+
+#   geom_point(aes(x=WT_over_split, y=upf1_over_split, text=Geneid, color = wt_vs_upf1_ratio_t_test))+
+#   scale_x_log10()+
+#   scale_y_log10()+
+#   geom_abline(slope = 1)+
+#   labs(title = "Intron containing (CDS) Annotations")+
+#   xlab(label = "WT Split Reads / WT Total Reads")+
+#   ylab(label = "upf1d Split Reads / upf1d Total Reads")
+
+# wt_vs_upf1_paired_unsplit_abundance <- ggplot(data = high_unsplit_abundance_split_pairs)+
+#   geom_point(aes(x=WT_over_split, y=upf1_over_split, text=Geneid, color = wt_vs_upf1_ratio_t_test))+
+#   scale_x_log10()+
+#   scale_y_log10()+
+#   geom_abline(slope = 1)+
+#   labs(title = "All Annotations | WT unsplit > 10000")+
+#   xlab(label = "WT Split Reads / WT Total Reads")+
+#   ylab(label = "upf1d Split Reads / upf1d Total Reads")
+
+
+ggplotly(wt_vs_upf1_paired_all)
+ggplotly(wt_vs_upf1_paired_intron_high_abundance)
+ggplotly(wt_vs_upf1_paired_high_abundance)
+ggplotly(wt_vs_upf1_paired_introns)
+ggplotly(wt_vs_upf1_paired_unsplit_abundance)
+```
+
+```{r}
+my_comparisons <- list( c("WT", "upf1"))
+
+box_plot <- ggplot(data = flagstats_df)+
+  geom_boxplot(aes (x = mutant, y = percent_flagged, fill =mutant))+
+  xlab("Mutant")+
+  ylab("% of total reads mapped to diffrent chromosomes") +
+  stat_compare_means(ref.group = "WT", aes(x = mutant, y = percent_flagged), method = "t.test")
+
+ggsave(filename = "plots/11NOV2021/boxplot.png", plot = box_plot, device = 'png', units = "in",height = 4, width = 7)
+
+```
+
+```{r}
+box_plot_all <- ggplot(data = split_pairs)+
+  geom_boxplot(aes (x = 1, y = WT1_over_split),fill ="blue1")+
+  geom_boxplot(aes (x = 2, y = WT2_over_split), fill ="blue2")+
+  geom_boxplot(aes (x = 3, y = WT3_over_split), fill ="blue3")+
+  geom_boxplot(aes (x = 4, y = WT_over_split), fill ="blue4")+
+  geom_boxplot(aes (x = 5, y = upf1_1_over_split), fill ="red1")+
+  geom_boxplot(aes (x = 6, y = upf1_2_over_split), fill ="red2")+
+  geom_boxplot(aes (x = 7, y = upf1_3_over_split), fill ="red3")+
+  geom_boxplot(aes (x = 8, y = upf1_over_split), fill ="red4")+
+  scale_y_log10()+
+  xlab("Mutant")+
+  ylab("% of total reads mapped to diffrent chromosomes") 
+
+box_plot_introns <- ggplot(data = intron_split_pairs)+
+  geom_boxplot(aes (x = 1, y = WT1_over_split),fill ="blue1")+
+  geom_boxplot(aes (x = 2, y = WT2_over_split), fill ="blue2")+
+  geom_boxplot(aes (x = 3, y = WT3_over_split), fill ="blue3")+
+  geom_boxplot(aes (x = 4, y = upf1_1_over_split), fill ="red1")+
+  geom_boxplot(aes (x = 5, y = upf1_2_over_split), fill ="red2")+
+  geom_boxplot(aes (x = 6, y = upf1_3_over_split), fill ="red3")+
+  scale_y_log10()+
+  xlab("Mutant")+
+  ylab("% of total reads mapped to diffrent chromosomes") 
+
+box_plot_highabundance <- ggplot(data = high_abundance_split_pairs)+
+  geom_boxplot(aes (x = 1, y = WT1_over_split),fill ="blue1")+
+  geom_boxplot(aes (x = 2, y = WT2_over_split), fill ="blue2")+
+  geom_boxplot(aes (x = 3, y = WT3_over_split), fill ="blue3")+
+  geom_boxplot(aes (x = 4, y = upf1_1_over_split), fill ="red1")+
+  geom_boxplot(aes (x = 5, y = upf1_2_over_split), fill ="red2")+
+  geom_boxplot(aes (x = 6, y = upf1_3_over_split), fill ="red3")+
+  scale_y_log10()+
+  xlab("Mutant")+
+  ylab("% of total reads mapped to diffrent chromosomes") 
+
+t.test(x = split_pairs$upf1_over_split, y = split_pairs$WT_over_split)
+
 ```
 

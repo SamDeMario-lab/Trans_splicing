@@ -1,0 +1,77 @@
+---
+title: "Untitled"
+author: "Samuel DeMario"
+date: "11/15/2021"
+output: html_document
+---
+```{r}
+library(ggplot2)
+library(ggpubr)
+```
+
+
+```{r}
+make_summay_df <- function(summary_df_name) {
+file_list <- list.files(path = "Insert_size/")
+
+summary_df <- data.frame(row.names = file_list)
+summary_df$insert_length <- as.numeric(NA)
+summary_df$Misorented_reads <- as.numeric(NA)
+summary_df$Tandem_reads <- as.numeric(NA)
+summary_df$mutant <- as.factor(NA)
+
+levels(summary_df$mutant) <- c("rrp6","upf1rrp6","upf1","WT")
+
+fixed_names<- c(
+  "rrp6_1",
+  "rrp6_2",
+  "rrp6_3",
+  "upf1rrp6_1",
+  "upf1rrp6_2",
+  "upf1rrp6_3",
+  "upf1_1",
+  "upf1_2",
+  "upf1_3",
+  "WT_1",
+  "WT_2",
+  "WT_3")
+
+for (i in file_list) {
+  file_name <- paste("Insert_size/",i, sep = "")
+  df <- read.delim(file_name,skip = 12)
+  assign(x = i, value = df, envir = globalenv() )
+  is_mean<- mean(get(i)$insert_size*get(i)$All_Reads.fr_count)
+  print(paste("Mean insert size",i,":", is_mean))
+  summary_df[i,"insert_length"] <- is_mean
+  Misorented_reads <- sum(get(i)$All_Reads.rf_count)
+  print(paste("Number of reversed pairs",i,":", Misorented_reads))
+  summary_df[i,"Misorented_reads"] <- Misorented_reads
+  Tandem_reads <- sum(get(i)$All_Reads.tandem_count)
+  print(paste("Number of tandem pairs",i,":", Tandem_reads))
+  summary_df[i,"Tandem_reads"] <- Tandem_reads
+}
+
+row.names(summary_df) <- fixed_names
+
+for (i in 1:length(file_list)) {
+  split_name <- strsplit(row.names(summary_df)[i], split = "_")
+  summary_df[i,"mutant"]<- split_name[[1]][1]
+}
+
+RDS_name <- paste("RDS/",summary_df_name, sep = "")
+
+saveRDS(object = summary_df, file = RDS_name)
+}
+
+make_summay_df("summary_df_all")
+```
+
+
+```{r}
+summary_df <- readRDS(file = "RDS/summary_df")
+
+ggplot(data = summary_df)+
+  geom_boxplot(aes(x=mutant,y=insert_length, fill = mutant))+
+  stat_compare_means(aes(x=mutant,y=insert_length), ref.group = "WT", method = "t.test")
+```
+

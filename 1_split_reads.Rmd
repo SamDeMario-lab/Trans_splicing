@@ -134,3 +134,11 @@ ggplotly(wt_vs_upf1)
 ggsave(plot = wt_vs_upf1_split,filename = "./plots/2NOV2021/upf1_vs_wt_split_introns.png", device = "png", units = "in", width = 6, height = 4)
 ```
 
+```{r}
+t.test(BWA_MEM2_secondary_introns$WT_over_split, BWA_MEM2_secondary_introns$upf1_over_split)
+t.test(high_abundance_BWA_MEM2_secondary$WT_over_split, high_abundance_BWA_MEM2_secondary$upf1_over_split)
+t.test(BWA_MEM2_secondary$WT_over_split,BWA_MEM2_secondary$upf1_over_split)
+BWA_MEM2_secondary_introns
+high_abundance_BWA_MEM2_secondary
+```
+
