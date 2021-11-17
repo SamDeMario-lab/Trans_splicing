@@ -11,13 +11,70 @@ library(ggpubr)
 
 
 ```{r}
-make_summay_df <- function(summary_df_name) {
+# make_summay_df <- function(summary_df_name) { ####
+# file_list <- list.files(path = "Insert_size/")
+# 
+# summary_df <- data.frame(row.names = file_list)
+# summary_df$insert_length <- as.numeric(NA)
+# summary_df$Misorented_reads <- as.numeric(NA)
+# summary_df$Tandem_reads <- as.numeric(NA)
+# summary_df$mutant <- as.factor(NA)
+# 
+# levels(summary_df$mutant) <- c("rrp6","upf1rrp6","upf1","WT")
+# 
+# fixed_names<- c(
+#   "rrp6_1",
+#   "rrp6_2",
+#   "rrp6_3",
+#   "upf1rrp6_1",
+#   "upf1rrp6_2",
+#   "upf1rrp6_3",
+#   "upf1_1",
+#   "upf1_2",
+#   "upf1_3",
+#   "WT_1",
+#   "WT_2",
+#   "WT_3")
+# 
+# for (i in file_list) {
+#   file_name <- paste("Insert_size/",i, sep = "")
+#   df <- read.delim(file_name,skip = 12)
+#   assign(x = i, value = df, envir = globalenv())
+#   is_mean<- mean(get(i)$insert_size*get(i)$All_Reads.fr_count)
+#   print(paste("Mean insert size",i,":", is_mean))
+#   summary_df[i,"insert_length"] <- is_mean
+#   Misorented_reads <- sum(get(i)$All_Reads.rf_count)
+#   print(paste("Number of reversed pairs",i,":", Misorented_reads))
+#   summary_df[i,"Misorented_reads"] <- Misorented_reads
+#   Tandem_reads <- sum(get(i)$All_Reads.tandem_count)
+#   print(paste("Number of tandem pairs",i,":", Tandem_reads))
+#   summary_df[i,"Tandem_reads"] <- Tandem_reads
+# }
+# 
+# row.names(summary_df) <- fixed_names
+# 
+# for (i in 1:length(file_list)) {
+#   split_name <- strsplit(row.names(summary_df)[i], split = "_")
+#   summary_df[i,"mutant"]<- split_name[[1]][1]
+# }
+# 
+# RDS_name <- paste("RDS/",summary_df_name, sep = "")
+# 
+# saveRDS(object = summary_df, file = RDS_name)
+# }
+#####
+# make_summay_df("summary_df_all")
+
+make_summay_df_subset <- function(summary_df_name, subset_length) {
 file_list <- list.files(path = "Insert_size/")
 
 summary_df <- data.frame(row.names = file_list)
+summary_df$total_reads_fr <- as.numeric(NA)
 summary_df$insert_length <- as.numeric(NA)
 summary_df$Misorented_reads <- as.numeric(NA)
 summary_df$Tandem_reads <- as.numeric(NA)
+summary_df$Tandem_reads_fraction <- as.numeric(NA)
+summary_df$Misoriented_reads_fraction <- as.numeric(NA)
 summary_df$mutant <- as.factor(NA)
 
 levels(summary_df$mutant) <- c("rrp6","upf1rrp6","upf1","WT")
@@ -38,9 +95,12 @@ fixed_names<- c(
 
 for (i in file_list) {
   file_name <- paste("Insert_size/",i, sep = "")
-  df <- read.delim(file_name,skip = 12)
-  assign(x = i, value = df, envir = globalenv() )
-  is_mean<- mean(get(i)$insert_size*get(i)$All_Reads.fr_count)
+  df_raw <- read.delim(file_name,skip = 12)
+  df <- subset(df_raw, df_raw$insert_size > subset_length)
+  assign(x = i, value = df, envir = globalenv())
+  weighter_lengths <- get(i)$insert_size*get(i)$All_Reads.fr_count
+  weighter_lengths_no_0 <- subset(weighter_lengths, weighter_lengths != 0)
+  is_mean <- mean(weighter_lengths_no_0)
   print(paste("Mean insert size",i,":", is_mean))
   summary_df[i,"insert_length"] <- is_mean
   Misorented_reads <- sum(get(i)$All_Reads.rf_count)
@@ -49,6 +109,9 @@ for (i in file_list) {
   Tandem_reads <- sum(get(i)$All_Reads.tandem_count)
   print(paste("Number of tandem pairs",i,":", Tandem_reads))
   summary_df[i,"Tandem_reads"] <- Tandem_reads
+  summary_df[i,"total_reads_fr"] <- sum(df_raw$All_Reads.fr_count)
+  summary_df[i,"Tandem_reads_fraction"] <- summary_df[i,"Tandem_reads"]/summary_df[i,"total_reads_fr"]
+  summary_df[i,"Misoriented_reads_fraction"] <- summary_df[i,"Misorented_reads"]/summary_df[i,"total_reads_fr"]
 }
 
 row.names(summary_df) <- fixed_names
@@ -63,15 +126,157 @@ RDS_name <- paste("RDS/",summary_df_name, sep = "")
 saveRDS(object = summary_df, file = RDS_name)
 }
 
-make_summay_df("summary_df_all")
+make_density_datasets <- function(subset_length, subset_max) {
+file_list <- list.files(path = "Insert_size/")
+
+fixed_names <- c(
+  "rrp6_1",
+  "rrp6_2",
+  "rrp6_3",
+  "upf1rrp6_1",
+  "upf1rrp6_2",
+  "upf1rrp6_3",
+  "upf1_1",
+  "upf1_2",
+  "upf1_3",
+  "WT_1",
+  "WT_2",
+  "WT_3")
+
+for (i in 1:length(file_list)) {
+  file_name <- paste("Insert_size/",file_list[i], sep = "")
+  df <- read.delim(file_name,skip = 12)
+  df <- subset(df, df$insert_size > subset_length)
+  df <- subset(df, df$insert_size < subset_max)
+  df$sample <- fixed_names[i]
+  split_name <- strsplit(fixed_names[i], split = "_")
+  df$mutant <- split_name[[1]][1]
+  df$mutant <- as.factor(df$mutant)
+  assign(x = file_list[i], value = df, envir = globalenv())
+}
+df_list <- lapply(X = file_list, FUN = get)
+
+full_df <- rbind(df_list[[1]],
+                 df_list[[2]],
+                 df_list[[3]],
+                 df_list[[4]],
+                 df_list[[5]],
+                 df_list[[6]],
+                 df_list[[7]],
+                 df_list[[8]],
+                 df_list[[9]],
+                 df_list[[10]],
+                 df_list[[11]],
+                 df_list[[12]]) 
+
+return(full_df)
+}
+
+full_df_100000 <- make_density_datasets(100000, 100000)
+full_df_50000 <- make_density_datasets(50000, 100000)
+full_df_5000_100000 <- make_density_datasets(5000, 100000)
+full_df_7000_100000 <- make_density_datasets(7000, 100000)
+full_df_0 <- make_density_datasets(0, 10000000000)
+make_summay_df_subset("summary_df_5000", 5000)
+make_summay_df_subset("summary_df_3000", 3000)
+make_summay_df_subset("summary_df_all", 0)
 ```
 
 
 ```{r}
-summary_df <- readRDS(file = "RDS/summary_df")
+summary_df <- readRDS(file = "RDS/summary_df_all")
+summary_df_2500 <- readRDS(file = "RDS/summary_df_2500")
+summary_df_3000 <- readRDS(file = "RDS/summary_df_3000")
+summary_df_5000 <- readRDS(file = "RDS/summary_df_5000")
+summary_df_10000 <- readRDS(file = "RDS/summary_df_10000")
+summary_df_50000 <- readRDS(file = "RDS/summary_df_50000")
 
-ggplot(data = summary_df)+
+insert_length_plot <- ggplot(data = summary_df_3000)+
   geom_boxplot(aes(x=mutant,y=insert_length, fill = mutant))+
-  stat_compare_means(aes(x=mutant,y=insert_length), ref.group = "WT", method = "t.test")
+  stat_compare_means(aes(x=mutant,y=insert_length), ref.group = "WT", method = "t.test")+
+  ylab("Mean insert length")+
+  xlab("Mutant")+
+  ggtitle(label = "Mean insert length | > 3,000 nts insert")
+
+Tandem_plot <- ggplot(data = summary_df)+
+  geom_boxplot(aes(x=mutant,y=Tandem_reads_fraction, fill = mutant))+
+  stat_compare_means(aes(x=mutant,y=Tandem_reads_fraction), ref.group = "WT", method = "t.test")+
+  ylab("Fraction Tandem Reads")+
+  xlab("Mutant")+
+  ggtitle(label = "Fraction Tandem Reads")
+
+Misoriented_plot <- ggplot(data = summary_df)+
+  geom_boxplot(aes(x=mutant,y=Misoriented_reads_fraction, fill = mutant))+
+  stat_compare_means(aes(x=mutant,y=Misoriented_reads_fraction), ref.group = "WT", method = "t.test")+
+  ylab("Misoriented reads fraction")+
+  xlab("Mutant")+
+  ggtitle(label = "Misoriented reads fraction")
+
+ggsave(plot = insert_length_plot,filename = "plots/17NOV2021/insert_size.png", device = "png", units = "in", width = 8, height = 4.5)
+ggsave(plot = Tandem_plot,filename = "plots/17NOV2021/Tandem_plot.png", device = "png", units = "in", width = 8, height = 4.5)
+ggsave(plot = Misoriented_plot,filename = "plots/17NOV2021/Misoriented_plot.png", device = "png", units = "in", width = 8, height = 4.5)
+```
+
+```{r}
+
+wt_df_100000 <- subset(full_df_100000, full_df_100000$mutant == "WT")
+wt_df_100000$weight <- wt_df_100000$All_Reads.fr_count/sum(wt_df_100000$All_Reads.fr_count)
+
+upf1_df_100000 <- subset(full_df_100000, full_df_100000$mutant == "upf1")
+upf1_df_100000$weight <- upf1_df_100000$All_Reads.fr_count/sum(upf1_df_100000$All_Reads.fr_count)
+
+wt_df_50000 <- subset(full_df_50000, full_df_50000$mutant == "WT")
+wt_df_50000$weight <- wt_df_50000$All_Reads.fr_count/sum(wt_df_50000$All_Reads.fr_count)
+
+upf1_df_50000 <- subset(full_df_50000, full_df_50000$mutant == "upf1")
+upf1_df_50000$weight <- upf1_df_50000$All_Reads.fr_count/sum(upf1_df_50000$All_Reads.fr_count)
+
+wt_df_5000_100000 <- subset(full_df_5000_100000, full_df_5000_100000$mutant == "WT")
+wt_df_5000_100000$weight <- wt_df_5000_100000$All_Reads.fr_count/sum(wt_df_5000_100000$All_Reads.fr_count)
+
+upf1_df_5000_100000 <- subset(full_df_5000_100000, full_df_5000_100000$mutant == "upf1")
+upf1_df_5000_100000$weight <- upf1_df_5000_100000$All_Reads.fr_count/sum(upf1_df_5000_100000$All_Reads.fr_count)
+
+wt_df_7000_100000 <- subset(full_df_7000_100000, full_df_7000_100000$mutant == "WT")
+wt_df_7000_100000$weight <- wt_df_7000_100000$All_Reads.fr_count/sum(wt_df_7000_100000$All_Reads.fr_count)
+
+upf1_df_7000_100000 <- subset(full_df_7000_100000, full_df_7000_100000$mutant == "upf1")
+upf1_df_7000_100000$weight <- upf1_df_7000_100000$All_Reads.fr_count/sum(upf1_df_7000_100000$All_Reads.fr_count)
+
+wt_df_0 <- subset(full_df_0, full_df_0$mutant == "WT")
+wt_df_0$weight <- wt_df_0$All_Reads.fr_count/sum(wt_df_0$All_Reads.fr_count)
+
+upf1_df_0 <- subset(full_df_0, full_df_0$mutant == "upf1")
+upf1_df_0$weight <- upf1_df_0$All_Reads.fr_count/sum(upf1_df_0$All_Reads.fr_count)
+
+ggplot()+
+  geom_density(data = wt_df_100000,aes(x = insert_size, weight = weight,fill = mutant), alpha = 0.5)+
+  geom_density(data = upf1_df_100000,aes(x = insert_size, weight = weight,fill = mutant), alpha = 0.5)+
+  scale_x_log10()
+
+ggplot()+
+  geom_density(data = wt_df_50000,aes(x = insert_size, weight = weight,fill = mutant), alpha = 0.5)+
+  geom_density(data = upf1_df_50000,aes(x = insert_size, weight = weight,fill = mutant), alpha = 0.5)
+
+ggplot()+
+  geom_density(data = wt_df_5000_100000,aes(x = insert_size, weight = weight,fill = mutant), alpha = 0.5)+
+  geom_density(data = upf1_df_5000_100000,aes(x = insert_size, weight = weight,fill = mutant), alpha = 0.5)
+
+hist_7000_100000 <- ggplot()+
+#  geom_density(data = wt_df_7000_100000,aes(x = insert_size, weight = weight,fill = mutant), alpha = 0.5)+
+#  geom_density(data = upf1_df_7000_100000,aes(x = insert_size, weight = weight,fill = mutant), alpha = 0.5)+
+  ggtitle(label = "Insert size | min: 7,000 | max: 100,000", subtitle = "Wildtype: Blue
+upf1d: Red")+
+  geom_histogram(data = wt_df_7000_100000,aes(x = insert_size, weight = weight), fill = "cyan", alpha = 0.5, bins = 200)+
+  geom_histogram(data = upf1_df_7000_100000,aes(x = insert_size, weight = weight), fill = "red3", alpha = 0.5, bins = 200)+
+  xlab(label = "Insert size")+
+  ylab(label = "Density")
+
+ggplot()+
+  geom_density(data = wt_df_0,aes(x = insert_size, weight = weight,fill = mutant), alpha = 0.5)+
+  geom_density(data = upf1_df_0,aes(x = insert_size, weight = weight,fill = mutant), alpha = 0.5)+
+  scale_x_log10()
+
+ggsave(plot = hist_7000_100000,filename = "plots/17NOV2021/hist_7000_100000.png", device = "png", units = "in", width = 12, height = 4.5)
 ```
 
